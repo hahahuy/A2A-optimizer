@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 from dataclasses import dataclass, field
 
-
-def _canonical_json(obj: object) -> bytes:
-    """Serialize obj to canonical JSON: keys sorted, no whitespace, UTF-8."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+from ascp._util import _canonical_json
 
 
 def _bundle_sha256(bundle: list[dict]) -> str:

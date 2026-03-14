@@ -1,7 +1,8 @@
 import hashlib
-import json
 import time
 from dataclasses import dataclass, field
+
+from ascp._util import _canonical_json
 
 
 @dataclass
@@ -17,10 +18,6 @@ class Checkpoint:
     messages: list[Message]
     created_at: float
     label: str = ""
-
-
-def _canonical_json(obj) -> bytes:
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
 def _message_to_dict(msg: Message) -> dict:
