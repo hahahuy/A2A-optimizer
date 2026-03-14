@@ -98,6 +98,18 @@ class TestSchemaRegistryRefresh(unittest.TestCase):
             with self.assertRaises(KeyError):
                 registry.refresh(schema_id)
 
+    def test_refresh_ttl_zero_raises_value_error(self):
+        registry = SchemaRegistry()
+        schema_id, _ = registry.register([{"name": "t", "inputSchema": {}}])
+        with self.assertRaises(ValueError):
+            registry.refresh(schema_id, ttl=0)
+
+    def test_refresh_ttl_negative_raises_value_error(self):
+        registry = SchemaRegistry()
+        schema_id, _ = registry.register([{"name": "t", "inputSchema": {}}])
+        with self.assertRaises(ValueError):
+            registry.refresh(schema_id, ttl=-1)
+
 
 class TestSchemaRegistryEviction(unittest.TestCase):
     def setUp(self):
@@ -161,9 +173,10 @@ class TestSchemaRegistryEdgeCases(unittest.TestCase):
             mock_time.time.return_value = future
             # Entry is expired; re-registering should resurrect it
             new_id, _ = registry.register(BUNDLE_A, ttl=60)
-        self.assertEqual(schema_id, new_id)
-        # After resurrection the entry should be resolvable
-        result = registry.resolve(schema_id)
+            self.assertEqual(schema_id, new_id)
+            # Resolve while mock time is before the new entry expires
+            mock_time.time.return_value = future + 30
+            result = registry.resolve(schema_id)
         self.assertEqual(result, BUNDLE_A)
 
 
