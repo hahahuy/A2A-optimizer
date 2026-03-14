@@ -120,6 +120,7 @@ Jobs:
 
   publish:
     needs: [test]          ← only runs if test job passes
+    environment: pypi      ← MUST match the Trusted Publisher environment on pypi.org
     steps:
       1. actions/checkout@v4
       2. actions/setup-python@v5 (3.12)
