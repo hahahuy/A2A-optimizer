@@ -81,7 +81,6 @@ class TestArtifactStoreRetrieve(unittest.TestCase):
         small = ArtifactStore(max_bytes=30)
         # Store two entries of 10 bytes each (total 20)
         cid_a = small.store(b"0123456789", media_type="text/plain")  # 10 bytes
-        time.sleep(0.01)
         cid_b = small.store(b"abcdefghij", media_type="text/plain")  # 10 bytes
 
         # Access A to make it more recently used than B
@@ -138,7 +137,6 @@ class TestArtifactStoreLRU(unittest.TestCase):
     def test_lru_eviction_on_store(self):
         small = ArtifactStore(max_bytes=20)
         cid_a = small.store(b"0123456789")  # 10 bytes — stored first (LRU)
-        time.sleep(0.01)
         cid_b = small.store(b"abcdefghij")  # 10 bytes — total 20
         # Adding 5 more bytes pushes to 25 > 20 → evict A
         cid_c = small.store(b"12345")       # 5 bytes

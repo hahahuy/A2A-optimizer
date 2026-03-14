@@ -1,5 +1,6 @@
 """Content-Addressed Artifact Store — Tool 2 of the ASCP library."""
 
+import dataclasses
 import hashlib
 import time
 from collections import OrderedDict
@@ -22,7 +23,6 @@ class ArtifactStore:
         self._max_bytes = max_bytes
         # OrderedDict keyed by CID; order = insertion/access order (LRU at front)
         self._entries: OrderedDict[str, ArtifactEntry] = OrderedDict()
-        self._access_times: dict[str, float] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -46,7 +46,6 @@ class ArtifactStore:
         if cid in self._entries:
             # Refresh access order (move to end = most recently used)
             self._entries.move_to_end(cid)
-            self._access_times[cid] = now
             return cid
 
         entry = ArtifactEntry(
@@ -57,7 +56,6 @@ class ArtifactStore:
             media_type=media_type,
         )
         self._entries[cid] = entry
-        self._access_times[cid] = now
 
         if self.total_bytes > self._max_bytes:
             self.evict_lru()
@@ -69,14 +67,12 @@ class ArtifactStore:
             raise KeyError(cid)
         # Refresh access order
         self._entries.move_to_end(cid)
-        self._access_times[cid] = time.time()
-        return self._entries[cid]
+        return dataclasses.replace(self._entries[cid])
 
     def delete(self, cid: str) -> bool:
         if cid not in self._entries:
             return False
         del self._entries[cid]
-        del self._access_times[cid]
         return True
 
     def evict_lru(self, target_bytes: int | None = None) -> int:
@@ -88,7 +84,6 @@ class ArtifactStore:
             # The first item in OrderedDict is the least recently used
             lru_cid, _ = next(iter(self._entries.items()))
             del self._entries[lru_cid]
-            del self._access_times[lru_cid]
             evicted += 1
 
         return evicted
