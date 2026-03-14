@@ -1,5 +1,6 @@
 import time
 import unittest
+from unittest.mock import patch
 
 from ascp.registry import SchemaRegistry
 
@@ -45,6 +46,14 @@ class TestSchemaRegistryRegistration(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.reg.register([])
 
+    def test_register_ttl_zero_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            self.reg.register(BUNDLE_A, ttl=0)
+
+    def test_register_ttl_negative_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            self.reg.register(BUNDLE_A, ttl=-1)
+
 
 class TestSchemaRegistryResolve(unittest.TestCase):
     def setUp(self):
@@ -60,10 +69,12 @@ class TestSchemaRegistryResolve(unittest.TestCase):
             self.reg.resolve("sha256:" + "a" * 64)
 
     def test_resolve_expired_raises_key_error(self):
-        schema_id, _ = self.reg.register(BUNDLE_A, ttl=1)
-        time.sleep(1.05)
-        with self.assertRaises(KeyError):
-            self.reg.resolve(schema_id)
+        registry = SchemaRegistry()
+        schema_id, _ = registry.register([{"name": "t", "inputSchema": {}}], ttl=60)
+        with patch("ascp.registry.time") as mock_time:
+            mock_time.time.return_value = time.time() + 3600
+            with self.assertRaises(KeyError):
+                registry.resolve(schema_id)
 
 
 class TestSchemaRegistryRefresh(unittest.TestCase):
@@ -80,10 +91,12 @@ class TestSchemaRegistryRefresh(unittest.TestCase):
             self.reg.refresh("sha256:" + "b" * 64)
 
     def test_refresh_expired_raises_key_error(self):
-        schema_id, _ = self.reg.register(BUNDLE_A, ttl=1)
-        time.sleep(1.05)
-        with self.assertRaises(KeyError):
-            self.reg.refresh(schema_id)
+        registry = SchemaRegistry()
+        schema_id, _ = registry.register([{"name": "t", "inputSchema": {}}], ttl=60)
+        with patch("ascp.registry.time") as mock_time:
+            mock_time.time.return_value = time.time() + 3600
+            with self.assertRaises(KeyError):
+                registry.refresh(schema_id)
 
 
 class TestSchemaRegistryEviction(unittest.TestCase):
@@ -91,10 +104,14 @@ class TestSchemaRegistryEviction(unittest.TestCase):
         self.reg = SchemaRegistry()
 
     def test_evict_expired_removes_entries(self):
-        self.reg.register(BUNDLE_A, ttl=1)
-        self.reg.register(BUNDLE_B, ttl=3600)
-        time.sleep(1.05)
-        removed = self.reg.evict_expired()
+        registry = SchemaRegistry()
+        now = time.time()
+        with patch("ascp.registry.time") as mock_time:
+            mock_time.time.return_value = now
+            registry.register(BUNDLE_A, ttl=60)
+            registry.register(BUNDLE_B, ttl=3600)
+            mock_time.time.return_value = now + 61
+            removed = registry.evict_expired()
         self.assertEqual(removed, 1)
 
     def test_evict_expired_returns_zero_when_none_expired(self):
@@ -125,10 +142,29 @@ class TestSchemaRegistryLen(unittest.TestCase):
         self.assertEqual(len(self.reg), 2)
 
     def test_len_excludes_expired(self):
-        self.reg.register(BUNDLE_A, ttl=1)
-        self.reg.register(BUNDLE_B, ttl=3600)
-        time.sleep(1.05)
-        self.assertEqual(len(self.reg), 1)
+        registry = SchemaRegistry()
+        now = time.time()
+        with patch("ascp.registry.time") as mock_time:
+            mock_time.time.return_value = now
+            registry.register(BUNDLE_A, ttl=60)
+            registry.register(BUNDLE_B, ttl=3600)
+            mock_time.time.return_value = now + 61
+            self.assertEqual(len(registry), 1)
+
+
+class TestSchemaRegistryEdgeCases(unittest.TestCase):
+    def test_reregister_expired_bundle_resurrects_entry(self):
+        registry = SchemaRegistry()
+        schema_id, _ = registry.register(BUNDLE_A, ttl=60)
+        with patch("ascp.registry.time") as mock_time:
+            future = time.time() + 3600
+            mock_time.time.return_value = future
+            # Entry is expired; re-registering should resurrect it
+            new_id, _ = registry.register(BUNDLE_A, ttl=60)
+        self.assertEqual(schema_id, new_id)
+        # After resurrection the entry should be resolvable
+        result = registry.resolve(schema_id)
+        self.assertEqual(result, BUNDLE_A)
 
 
 if __name__ == "__main__":

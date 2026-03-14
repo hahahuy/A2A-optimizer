@@ -39,6 +39,8 @@ class SchemaRegistry:
     def register(self, bundle: list[dict], ttl: int = 3600) -> tuple[str, int]:
         if not bundle:
             raise ValueError("bundle must not be empty")
+        if ttl <= 0:
+            raise ValueError(f"ttl must be positive, got {ttl}")
 
         schema_id = _bundle_sha256(bundle)
         now = time.time()
@@ -50,7 +52,7 @@ class SchemaRegistry:
         else:
             self._store[schema_id] = SchemaEntry(
                 schema_id=schema_id,
-                bundle=bundle,
+                bundle=list(bundle),
                 registered_at=now,
                 ttl=ttl,
             )
@@ -61,9 +63,11 @@ class SchemaRegistry:
         entry = self._store.get(schema_id)
         if entry is None or entry.is_expired:
             raise KeyError(schema_id)
-        return entry.bundle
+        return list(entry.bundle)
 
     def refresh(self, schema_id: str, ttl: int = 3600) -> int:
+        if ttl <= 0:
+            raise ValueError(f"ttl must be positive, got {ttl}")
         entry = self._store.get(schema_id)
         if entry is None or entry.is_expired:
             raise KeyError(schema_id)
