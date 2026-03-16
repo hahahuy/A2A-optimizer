@@ -1,0 +1,27 @@
+# Worktrees
+.worktrees/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build & packaging
+dist/
+build/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editors
+.vscode/
+.idea/
+
+# CLaude
+.claude/
+.claude/docs/*
+CLAUDE.md
